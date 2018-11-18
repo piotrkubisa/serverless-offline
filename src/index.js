@@ -34,7 +34,6 @@ class Offline {
   constructor(serverless, options) {
     this.serverless = serverless;
     this.service = serverless.service;
-    this.serverlessLog = serverless.cli.log.bind(serverless.cli);
     this.options = options;
     this.exitCode = 0;
     this.provider = 'aws';
@@ -149,8 +148,8 @@ class Offline {
   }
 
   logPluginIssue() {
-    this.serverlessLog('If you think this is an issue with the plugin please submit it, thanks!');
-    this.serverlessLog('https://github.com/dherault/serverless-offline/issues');
+    console.info('If you think this is an issue with the plugin please submit it, thanks!');
+    console.info('https://github.com/dherault/serverless-offline/issues');
   }
 
   // Entry point for the plugin (sls offline)
@@ -178,23 +177,23 @@ class Offline {
     );
 
     return Promise.race([waitForSigInt, waitForSigTerm]).then(command => {
-      this.serverlessLog(`Got ${command} signal. Offline Halting...`);
+      console.info(`Got ${command} signal. Offline Halting...`);
     });
   }
 
   _executeShellScript() {
     const command = this.options.exec;
 
-    this.serverlessLog(`Offline executing script [${command}]`);
+    console.info(`Offline executing script [${command}]`);
     const options = { env: Object.assign({ IS_OFFLINE: true }, this.service.provider.environment, this.originalEnvironment) };
 
     return new Promise(resolve => {
       exec(command, options, (error, stdout, stderr) => {
-        this.serverlessLog(`exec stdout: [${stdout}]`);
-        this.serverlessLog(`exec stderr: [${stderr}]`);
+        console.info(`exec stdout: [${stdout}]`);
+        console.info(`exec stderr: [${stderr}]`);
         if (error) {
           // Use the failed command's exit code, proceed as normal so that shutdown can occur gracefully
-          this.serverlessLog(`Offline error executing script [${error}]`);
+          console.info(`Offline error executing script [${error}]`);
           this.exitCode = error.code || 1;
         }
         resolve();
@@ -279,7 +278,7 @@ class Offline {
 
     this.options.cacheInvalidationRegex = new RegExp(this.options.cacheInvalidationRegex);
 
-    this.serverlessLog(`Starting Offline: ${this.options.stage}/${this.options.region}.`);
+    console.info(`Starting Offline: ${this.options.stage}/${this.options.region}.`);
     debugLog('options:', this.options);
     debugLog('globalBabelOptions:', this.globalBabelOptions);
   }
@@ -310,7 +309,7 @@ class Offline {
       },
     });
 
-    this.server.register(require('h2o2'), err => err && this.serverlessLog(err));
+    this.server.register(require('h2o2'), err => err && console.info(err));
 
     const connectionOptions = {
       host: this.options.host,
@@ -341,20 +340,20 @@ class Offline {
 
     if (['nodejs', 'nodejs4.3', 'nodejs6.10', 'nodejs8.10', 'babel'].indexOf(serviceRuntime) === -1) {
       this.printBlankLine();
-      this.serverlessLog(`Warning: found unsupported runtime '${serviceRuntime}'`);
+      console.info(`Warning: found unsupported runtime '${serviceRuntime}'`);
 
       return;
     }
 
     // for simple API Key authentication model
     if (!_.isEmpty(apiKeys)) {
-      this.serverlessLog(`Key with token: ${this.options.apiKey}`);
+      console.info(`Key with token: ${this.options.apiKey}`);
 
       if (this.options.noAuth) {
-        this.serverlessLog('Authorizers are turned off. You do not need to use x-api-key header.');
+        console.info('Authorizers are turned off. You do not need to use x-api-key header.');
       }
       else {
-        this.serverlessLog('Remember to use x-api-key on the request headers');
+        console.info('Remember to use x-api-key on the request headers');
       }
     }
 
@@ -368,11 +367,11 @@ class Offline {
 
       this.printBlankLine();
       debugLog(funName, 'runtime', serviceRuntime, funOptions.babelOptions || '');
-      this.serverlessLog(`Routes for ${funName}:`);
+      console.info(`Routes for ${funName}:`);
 
       // Adds a route for each http endpoint
-      (fun.events && fun.events.length || this.serverlessLog('(none)')) && fun.events.forEach(event => {
-        if (!event.http) return this.serverlessLog('(none)');
+      (fun.events && fun.events.length || console.info('(none)')) && fun.events.forEach(event => {
+        if (!event.http) return console.info('(none)');
 
         // Handle Simple http setup, ex. - http: GET users/index
         if (typeof event.http === 'string') {
@@ -402,7 +401,7 @@ class Offline {
           protectedRoutes.push(`${method}#${fullPath}`);
         }
 
-        this.serverlessLog(`${method} ${fullPath}`);
+        console.info(`${method} ${fullPath}`);
 
         // If the endpoint has an authorization function, create an authStrategy for the route
         const authStrategyName = this.options.noAuth ? null : this._configureAuthorization(endpoint, funName, method, epath, servicePath);
@@ -437,7 +436,7 @@ class Offline {
         // skip HEAD routes as hapi will fail with 'Method name not allowed: HEAD ...'
         // for more details, check https://github.com/dherault/serverless-offline/issues/204
         if (routeMethod === 'HEAD') {
-          this.serverlessLog('HEAD method event detected. Skipping HAPI server route mapping ...');
+          console.info('HEAD method event detected. Skipping HAPI server route mapping ...');
 
           return;
         }
@@ -491,13 +490,13 @@ class Offline {
 
             // Incomming request message
             this.printBlankLine();
-            this.serverlessLog(`${method} ${request.path} (λ: ${funName})`);
+            console.info(`${method} ${request.path} (λ: ${funName})`);
             if (firstCall) {
-              this.serverlessLog('The first request might take a few extra seconds');
+              console.info('The first request might take a few extra seconds');
               firstCall = false;
             }
 
-            // this.serverlessLog(protectedRoutes);
+            // console.info(protectedRoutes);
             // Check for APIKey
             if ((_.includes(protectedRoutes, `${routeMethod}#${fullPath}`) || _.includes(protectedRoutes, `ANY#${fullPath}`)) && !this.options.noAuth) {
               const errorResponse = response => response({ message: 'Forbidden' }).code(403).type('application/json').header('x-amzn-ErrorType', 'ForbiddenException');
@@ -632,7 +631,7 @@ class Offline {
                 const warning = fromPromise
                   ? `Warning: handler '${funName}' returned a promise and also uses a callback!\nThis is problematic and might cause issues in your lambda.`
                   : `Warning: context.done called twice within handler '${funName}'!`;
-                this.serverlessLog(warning);
+                console.info(warning);
                 debugLog('requestId:', requestId);
 
                 return;
@@ -678,7 +677,7 @@ class Offline {
                   stackTrace: this._getArrayStackTrace(err.stack),
                 };
 
-                this.serverlessLog(`Failure: ${errorMessage}`);
+                console.info(`Failure: ${errorMessage}`);
                 if (result.stackTrace) {
                   debugLog(result.stackTrace.join('\n  '));
                 }
@@ -730,8 +729,8 @@ class Offline {
                       }
                       else {
                         this.printBlankLine();
-                        this.serverlessLog(`Warning: while processing responseParameter "${key}": "${value}"`);
-                        this.serverlessLog(`Offline plugin only supports "integration.response.body[.JSON_path]" right-hand responseParameter. Found "${value}" instead. Skipping.`);
+                        console.info(`Warning: while processing responseParameter "${key}": "${value}"`);
+                        console.info(`Offline plugin only supports "integration.response.body[.JSON_path]" right-hand responseParameter. Found "${value}" instead. Skipping.`);
                         this.logPluginIssue();
                         this.printBlankLine();
                       }
@@ -746,8 +745,8 @@ class Offline {
                   }
                   else {
                     this.printBlankLine();
-                    this.serverlessLog(`Warning: while processing responseParameter "${key}": "${value}"`);
-                    this.serverlessLog(`Offline plugin only supports "method.response.header.PARAM_NAME" left-hand responseParameter. Found "${key}" instead. Skipping.`);
+                    console.info(`Warning: while processing responseParameter "${key}": "${value}"`);
+                    console.info(`Offline plugin only supports "method.response.header.PARAM_NAME" left-hand responseParameter. Found "${key}" instead. Skipping.`);
                     this.logPluginIssue();
                     this.printBlankLine();
                   }
@@ -786,7 +785,7 @@ class Offline {
                         result = renderVelocityTemplateObject({ root: responseTemplate }, reponseContext).root;
                       }
                       catch (error) {
-                        this.serverlessLog(`Error while parsing responseTemplate '${responseContentType}' for lambda ${funName}:`);
+                        console.info(`Error while parsing responseTemplate '${responseContentType}' for lambda ${funName}:`);
                         console.log(error.stack);
                       }
                     }
@@ -799,7 +798,7 @@ class Offline {
 
                 if (!chosenResponse.statusCode) {
                   this.printBlankLine();
-                  this.serverlessLog(`Warning: No statusCode found for response "${responseName}".`);
+                  console.info(`Warning: No statusCode found for response "${responseName}".`);
                 }
 
                 response.header('Content-Type', responseContentType, {
@@ -877,7 +876,7 @@ class Offline {
                 // nothing
               }
               finally {
-                if (!this.options.dontPrintOutput) this.serverlessLog(err ? `Replying ${statusCode}` : `[${statusCode}] ${whatToLog}`);
+                if (!this.options.dontPrintOutput) console.info(err ? `Replying ${statusCode}` : `[${statusCode}] ${whatToLog}`);
                 debugLog('requestId:', requestId);
               }
 
@@ -918,29 +917,29 @@ class Offline {
     if (endpoint.authorizer) {
       let authFunctionName = endpoint.authorizer;
       if (typeof authFunctionName === 'string' && authFunctionName.toUpperCase() === 'AWS_IAM') {
-        this.serverlessLog('WARNING: Serverless Offline does not support the AWS_IAM authorization type');
+        console.info('WARNING: Serverless Offline does not support the AWS_IAM authorization type');
 
         return null;
       }
       if (typeof endpoint.authorizer === 'object') {
         if (endpoint.authorizer.type && endpoint.authorizer.type.toUpperCase() === 'AWS_IAM') {
-          this.serverlessLog('WARNING: Serverless Offline does not support the AWS_IAM authorization type');
+          console.info('WARNING: Serverless Offline does not support the AWS_IAM authorization type');
 
           return null;
         }
         if (endpoint.authorizer.arn) {
-          this.serverlessLog(`WARNING: Serverless Offline does not support non local authorizers: ${endpoint.authorizer.arn}`);
+          console.info(`WARNING: Serverless Offline does not support non local authorizers: ${endpoint.authorizer.arn}`);
 
           return authStrategyName;
         }
         authFunctionName = endpoint.authorizer.name;
       }
 
-      this.serverlessLog(`Configuring Authorization: ${endpoint.path} ${authFunctionName}`);
+      console.info(`Configuring Authorization: ${endpoint.path} ${authFunctionName}`);
 
       const authFunction = this.service.getFunction(authFunctionName);
 
-      if (!authFunction) return this.serverlessLog(`WARNING: Authorization function ${authFunctionName} does not exist`);
+      if (!authFunction) return console.info(`WARNING: Authorization function ${authFunctionName} does not exist`);
 
       const authorizerOptions = {
         resultTtlInSeconds: '300',
@@ -969,7 +968,7 @@ class Offline {
         funName,
         epath,
         this.options,
-        this.serverlessLog,
+        console.info,
         servicePath,
         this.serverless
       );
@@ -989,7 +988,7 @@ class Offline {
         if (err) return reject(err);
 
         this.printBlankLine();
-        this.serverlessLog(`Offline listening on http${this.options.httpsProtocol ? 's' : ''}://${this.options.host}:${this.options.port}`);
+        console.info(`Offline listening on http${this.options.httpsProtocol ? 's' : ''}://${this.options.host}:${this.options.port}`);
 
         resolve(this.server);
       });
@@ -997,7 +996,7 @@ class Offline {
   }
 
   end() {
-    this.serverlessLog('Halting offline server');
+    console.info('Halting offline server');
     this.server.stop({ timeout: 5000 })
     .then(() => process.exit(this.exitCode));
   }
@@ -1011,7 +1010,7 @@ class Offline {
 
     const stackTrace = this._getArrayStackTrace(err.stack);
 
-    this.serverlessLog(message);
+    console.info(message);
     if (stackTrace && stackTrace.length > 0) {
       console.log(stackTrace);
     }
@@ -1030,7 +1029,7 @@ class Offline {
       offlineInfo: 'If you believe this is an issue with the plugin please submit it, thanks. https://github.com/dherault/serverless-offline/issues',
     };
     /* eslint-enable no-param-reassign */
-    this.serverlessLog('Replying error in handler');
+    console.info('Replying error in handler');
     response.send();
   }
 
@@ -1039,7 +1038,7 @@ class Offline {
 
     this.requests[requestId].done = true;
 
-    this.serverlessLog(`Replying timeout after ${funTimeout}ms`);
+    console.info(`Replying timeout after ${funTimeout}ms`);
     /* eslint-disable no-param-reassign */
     response.statusCode = 503;
     response.source = `[Serverless-Offline] Your λ handler '${funName}' timed out after ${funTimeout}ms.`;
@@ -1061,7 +1060,7 @@ class Offline {
     if (_.isEmpty(resourceRoutes)) return true;
 
     this.printBlankLine();
-    this.serverlessLog('Routes defined in resources:');
+    console.info('Routes defined in resources:');
 
     Object.keys(resourceRoutes).forEach(methodId => {
       const resourceRoutesObj = resourceRoutes[methodId];
@@ -1072,10 +1071,10 @@ class Offline {
       const pathResource = resourceRoutesObj.pathResource;
 
       if (!isProxy) {
-        return this.serverlessLog(`WARNING: Only HTTP_PROXY is supported. Path '${pathResource}' is ignored.`);
+        return console.info(`WARNING: Only HTTP_PROXY is supported. Path '${pathResource}' is ignored.`);
       }
       if (!path) {
-        return this.serverlessLog(`WARNING: Could not resolve path for '${methodId}'.`);
+        return console.info(`WARNING: Could not resolve path for '${methodId}'.`);
       }
 
       let fullPath = this.options.prefix + (pathResource.startsWith('/') ? pathResource.slice(1) : pathResource);
@@ -1086,7 +1085,7 @@ class Offline {
       const proxyUriInUse = proxyUriOverwrite.Uri || proxyUri;
 
       if (!proxyUriInUse) {
-        return this.serverlessLog(`WARNING: Could not load Proxy Uri for '${methodId}'`);
+        return console.info(`WARNING: Could not load Proxy Uri for '${methodId}'`);
       }
 
       const routeMethod = method === 'ANY' ? '*' : method;
@@ -1096,7 +1095,7 @@ class Offline {
         routeConfig.payload = { parse: false };
       }
 
-      this.serverlessLog(`${method} ${fullPath} -> ${proxyUriInUse}`);
+      console.info(`${method} ${fullPath} -> ${proxyUriInUse}`);
       this.server.route({
         method: routeMethod,
         path: fullPath,
@@ -1108,7 +1107,7 @@ class Offline {
           Object.keys(params).forEach(key => {
             resultUri = resultUri.replace(`{${key}}`, params[key]);
           });
-          this.serverlessLog(`PROXY ${request.method} ${request.url.path} -> ${resultUri}`);
+          console.info(`PROXY ${request.method} ${request.url.path} -> ${resultUri}`);
           reply.proxy({ uri: resultUri, passThrough: true });
         },
       });
