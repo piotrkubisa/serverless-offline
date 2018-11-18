@@ -155,8 +155,6 @@ class Offline {
 
   // Entry point for the plugin (sls offline)
   start() {
-    this._checkVersion();
-
     // Some users would like to know their environment outside of the handler
     process.env.IS_OFFLINE = true;
 
@@ -164,14 +162,6 @@ class Offline {
     .then(() => this._listen())
     .then(() => this.options.exec ? this._executeShellScript() : this._listenForTermination())
     .then(() => this.end());
-  }
-
-  _checkVersion() {
-    const version = this.serverless.version;
-    if (!version.startsWith('1.')) {
-      this.serverlessLog(`Offline requires Serverless v1.x.x but found ${version}. Exiting.`);
-      process.exit(0);
-    }
   }
 
   _listenForTermination() {
