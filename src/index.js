@@ -31,9 +31,8 @@ const isNestedString = RegExp.prototype.test.bind(/^'.*?'$/);
  */
 class Offline {
 
-  constructor(serverless, options) {
-    this.serverless = serverless;
-    this.service = serverless.service;
+  constructor(service, options) {
+    this.service = service;
     this.options = options;
     this.exitCode = 0;
     this.provider = 'aws';
